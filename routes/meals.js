@@ -32,41 +32,75 @@ router.get('/', (req, res) => {
 
 
 // Add or update a meal
-router.post('/', authenticate, (req, res) => {
-  const { name, ingredients, url } = req.body;
-  const lastUsed = new Date().toISOString();
+router.post('/', (req, res) => {
+  const { name, ingredients, lastUsed, url } = req.body;
 
-  db.run(
-    `INSERT INTO meals (name, ingredients, lastUsed, url) VALUES (?, ?, ?, ?)`,
-    [name, JSON.stringify(ingredients), lastUsed, url],
-    (err) => {
-      if (err) return res.status(500).json({ error: 'Failed to add meal' });
-      res.status(201).json({ message: 'Meal added successfully' });
+  if (!name || !ingredients || !url) {
+    return res.status(400).json({ error: 'Invalid meal data' });
+  }
+
+  try {
+    const stmt = db.prepare(
+      `INSERT INTO meals (name, ingredients, lastUsed, url) VALUES (?, ?, ?, ?)`
+    );
+    stmt.run(name, JSON.stringify(ingredients), lastUsed, url);
+    res.status(201).json({ message: 'Meal added successfully' });
+  } catch (err) {
+    console.error('Error adding meal:', err);
+    res.status(500).json({ error: 'Failed to add meal' });
+  }
+});
+
+
+router.get('/weekly', (req, res) => {
+  try {
+    // Fetch all meals from the database
+    const stmt = db.prepare(`SELECT * FROM meals`);
+    const allMeals = stmt.all();
+
+    if (allMeals.length === 0) {
+      return res.status(404).json({ error: 'No meals found' });
     }
-  );
+
+    // Sort meals by lastUsed (oldest first)
+    allMeals.sort((a, b) => new Date(a.lastUsed) - new Date(b.lastUsed));
+
+    // Select up to 7 meals
+    const selectedMeals = allMeals.slice(0, 7);
+
+    // Shuffle the selected meals to introduce randomness
+    for (let i = selectedMeals.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [selectedMeals[i], selectedMeals[j]] = [selectedMeals[j], selectedMeals[i]];
+    }
+
+    res.json(selectedMeals);
+  } catch (err) {
+    console.error('Error selecting weekly meals:', err);
+    res.status(500).json({ error: 'Failed to select weekly meals' });
+  }
 });
 
-// Semi-random weekly meal selection
-router.get('/weekly', authenticate, (req, res) => {
-  db.all(`SELECT * FROM meals ORDER BY RANDOM() LIMIT 7`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Failed to fetch meals' });
-    res.json(rows);
-  });
-});
 
 // Update last used
 router.put('/:id', authenticate, (req, res) => {
   const { id } = req.params;
-  const lastUsed = new Date().toISOString();
+  const lastUsed = new Date().toISOString(); // Get the current timestamp
 
-  db.run(
-    `UPDATE meals SET lastUsed = ? WHERE id = ?`,
-    [lastUsed, id],
-    (err) => {
-      if (err) return res.status(500).json({ error: 'Failed to update meal' });
-      res.json({ message: 'Meal updated successfully' });
+  try {
+    const stmt = db.prepare(`UPDATE meals SET lastUsed = ? WHERE id = ?`);
+    const result = stmt.run(lastUsed, id);
+
+    // Check if a row was actually updated
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Meal not found' });
     }
-  );
+
+    res.json({ message: 'Meal updated successfully' });
+  } catch (err) {
+    console.error('Error updating meal:', err);
+    res.status(500).json({ error: 'Failed to update meal' });
+  }
 });
 
 module.exports = router;
