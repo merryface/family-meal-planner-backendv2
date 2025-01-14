@@ -30,27 +30,32 @@ router.post('/register', async (req, res) => {
   
 });
 
-// Login
+// Login route
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  db.get(
-    `SELECT * FROM users WHERE username = ?`,
-    [username],
-    async (err, user) => {
-      if (err || !user) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-      }
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
 
-      const match = await bcrypt.compare(password, user.password);
-      if (!match) {
-        return res.status(400).json({ error: 'Invalid credentials' });
-      }
-
-      const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: '1h' });
-      res.json({ token });
+  try {
+    const user = db.prepare(`SELECT * FROM users WHERE username = ?`).get(username);
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid credentials' });
     }
-  );
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: '1h' });
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to log in' });
+  }
 });
+
 
 module.exports = router;
