@@ -5,12 +5,17 @@ const db = require('../database');
 
 const router = express.Router();
 const SECRET = process.env.JWT_SECRET || 'defaultsecret';
+console.log('Registering /auth routes');
+
+console.log('Auth routes are being registered');
 
 // Register a user
 router.post('/register', async (req, res) => {
+  console.log('POST /auth/register accessed'); 
   const { username, password } = req.body;
 
   if (!username || !password) {
+    console.log('Missing username or password');
     return res.status(400).json({ error: 'Username and password required' });
   }
 

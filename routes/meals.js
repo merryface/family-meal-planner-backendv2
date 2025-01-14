@@ -18,12 +18,18 @@ const authenticate = (req, res, next) => {
 };
 
 // Get all meals
-router.get('/', authenticate, (req, res) => {
-  db.all(`SELECT * FROM meals`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Failed to fetch meals' });
-    res.json(rows);
-  });
+router.get('/', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM meals');
+    const meals = stmt.all(); // Fetch all rows synchronously
+    res.json(meals);
+  } catch (err) {
+    console.error('Error fetching meals:', err);
+    res.status(500).json({ error: 'Failed to fetch meals' });
+  }
 });
+
+
 
 // Add or update a meal
 router.post('/', authenticate, (req, res) => {
