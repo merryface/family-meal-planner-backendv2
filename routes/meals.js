@@ -20,15 +20,21 @@ const authenticate = (req, res, next) => {
 // Get all meals
 router.get('/', (req, res) => {
   try {
-    const stmt = db.prepare('SELECT * FROM meals');
-    const meals = stmt.all(); // Fetch all rows synchronously
-    res.json(meals);
+    const stmt = db.prepare(`SELECT * FROM meals`);
+    const meals = stmt.all();
+
+    // Parse the `ingredients` field for each meal
+    const parsedMeals = meals.map((meal) => ({
+      ...meal,
+      ingredients: JSON.parse(meal.ingredients), // Parse JSON string back into array
+    }));
+
+    res.json(parsedMeals);
   } catch (err) {
     console.error('Error fetching meals:', err);
     res.status(500).json({ error: 'Failed to fetch meals' });
   }
 });
-
 
 
 // Add or update a meal
