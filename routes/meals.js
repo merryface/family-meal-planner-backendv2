@@ -57,7 +57,6 @@ router.post('/', (req, res) => {
   }
 });
 
-
 router.get('/weekly', (req, res) => {
   try {
     // Fetch all meals from the database
@@ -68,11 +67,17 @@ router.get('/weekly', (req, res) => {
       return res.status(404).json({ error: 'No meals found' });
     }
 
-    // Sort meals by lastUsed (oldest first)
-    allMeals.sort((a, b) => new Date(a.lastUsed) - new Date(b.lastUsed));
+    // Parse the `ingredients` field for each meal
+    const parsedMeals = allMeals.map((meal) => ({
+      ...meal,
+      ingredients: JSON.parse(meal.ingredients), // Parse JSON string back into array
+    }));
+
+    // Sort meals by `lastUsed` (oldest first)
+    parsedMeals.sort((a, b) => new Date(a.lastUsed || 0) - new Date(b.lastUsed || 0));
 
     // Select up to 7 meals
-    const selectedMeals = allMeals.slice(0, 7);
+    const selectedMeals = parsedMeals.slice(0, 7);
 
     // Shuffle the selected meals to introduce randomness
     for (let i = selectedMeals.length - 1; i > 0; i--) {
@@ -86,6 +91,7 @@ router.get('/weekly', (req, res) => {
     res.status(500).json({ error: 'Failed to select weekly meals' });
   }
 });
+
 
 
 // Update last used
