@@ -16,14 +16,18 @@ router.post('/register', async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  db.run(
-    `INSERT INTO users (username, password) VALUES (?, ?)`,
-    [username, hashedPassword],
-    (err) => {
-      if (err) return res.status(500).json({ error: 'User already exists' });
-      res.status(201).json({ message: 'User registered successfully' });
+  try {
+    const stmt = db.prepare(`INSERT INTO users (username, password) VALUES (?, ?)`);
+    stmt.run(username, hashedPassword);
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT') {
+      res.status(400).json({ error: 'User already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to register user' });
     }
-  );
+  }
+  
 });
 
 // Login
