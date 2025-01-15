@@ -115,4 +115,51 @@ router.put('/:id', authenticate, (req, res) => {
   }
 });
 
+// Add multiple meals
+router.post('/bulk', (req, res) => {
+  const meals = req.body;
+
+  if (!Array.isArray(meals) || meals.length === 0) {
+    return res.status(400).json({ error: 'Invalid data. Expected a non-empty array of meals.' });
+  }
+
+  const errors = [];
+
+  try {
+    const insertStmt = db.prepare(
+      `INSERT INTO meals (name, ingredients, lastUsed, url) VALUES (?, ?, ?, ?)`
+    );
+
+    db.transaction(() => {
+      meals.forEach((meal, index) => {
+        const { name, ingredients, lastUsed, url } = meal;
+
+        if (!name || !ingredients || !url) {
+          errors.push({ index, error: 'Missing required fields: name, ingredients, or url.' });
+          return;
+        }
+
+        try {
+          insertStmt.run(name, JSON.stringify(ingredients), lastUsed, url);
+        } catch (err) {
+          errors.push({ index, error: `Database error: ${err.message}` });
+        }
+      });
+    })();
+
+    if (errors.length > 0) {
+      return res.status(207).json({
+        message: 'Some meals could not be added.',
+        errors,
+      });
+    }
+
+    res.status(201).json({ message: 'All meals added successfully.' });
+  } catch (err) {
+    console.error('Error adding meals in bulk:', err);
+    res.status(500).json({ error: 'Failed to add meals in bulk.' });
+  }
+});
+
+
 module.exports = router;
